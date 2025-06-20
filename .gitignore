@@ -1,0 +1,71 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.*       # For environment-specific files like .env.production
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Dependency directories
+.pnp
+.pnp.js
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Optional TypeScript cache
+*.tsbuildinfo
+
+# Coverage directory used by testing tools
+coverage/
+
+# Optional lock files (include only the one you use)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Storybook build
+storybook-static/
+
+# Local development SSL certificates
+*.pem
+*.key
+
+# Next.js / Vite specific (if applicable)
+.next/
+out/
+vite.svg
+*.local
+
+# JetBrains IDEs
+*.iml
+.idea/
