@@ -4,11 +4,18 @@ import {
   setCardholderName,
   setExpirationMonth,
   setExpirationYear,
+  setAmount,
+  setCurrency,
+  setBillingInfo,
+  updateBillingField,
   setFlexConfig,
   setMicroformInstance,
   setTransientToken,
   setTokenValidationResponse,
   setAuthenticationSetupResponse,
+  setDeviceCollectionComplete,
+  setEnrollmentCheckResponse,
+  setThreeDSCompletionData,
   clearTokenData,
   setLoading,
   setError,
@@ -20,12 +27,17 @@ import {
   selectCardholderName,
   selectExpirationMonth,
   selectExpirationYear,
+  selectAmount,
+  selectCurrency,
+  selectBillingInfo,
   selectFlexConfig,
   selectMicroformInstance,
   selectMicroformReady,
   selectTransientToken,
   selectTokenValidationResponse,
   selectAuthenticationSetupResponse,
+  selectEnrollmentCheckResponse,
+  selectThreeDSCompletionData,
   selectLoading,
   selectError,
   selectCopiedField,
@@ -36,6 +48,8 @@ import {
   selectTransientTokenCreated,
   selectTokenValidated,
   selectAuthenticationSetupComplete,
+  selectDeviceCollectionComplete,
+  selectEnrollmentCheckComplete,
 } from "../store/slices/paymentFormSlice";
 
 export const usePaymentForm = () => {
@@ -45,12 +59,17 @@ export const usePaymentForm = () => {
   const cardholderName = useSelector(selectCardholderName);
   const expirationMonth = useSelector(selectExpirationMonth);
   const expirationYear = useSelector(selectExpirationYear);
+  const amount = useSelector(selectAmount);
+  const currency = useSelector(selectCurrency);
+  const billingInfo = useSelector(selectBillingInfo);
   const flexConfig = useSelector(selectFlexConfig);
   const microformInstance = useSelector(selectMicroformInstance);
   const microformReady = useSelector(selectMicroformReady);
   const transientToken = useSelector(selectTransientToken);
   const tokenValidationResponse = useSelector(selectTokenValidationResponse);
   const authenticationSetupResponse = useSelector(selectAuthenticationSetupResponse);
+  const enrollmentCheckResponse = useSelector(selectEnrollmentCheckResponse);
+  const threeDSCompletionData = useSelector(selectThreeDSCompletionData);
   const loading = useSelector(selectLoading);
   const error = useSelector(selectError);
   const copiedField = useSelector(selectCopiedField);
@@ -61,6 +80,8 @@ export const usePaymentForm = () => {
   const transientTokenCreated = useSelector(selectTransientTokenCreated);
   const tokenValidated = useSelector(selectTokenValidated);
   const authenticationSetupComplete = useSelector(selectAuthenticationSetupComplete);
+  const deviceCollectionComplete = useSelector(selectDeviceCollectionComplete);
+  const enrollmentCheckComplete = useSelector(selectEnrollmentCheckComplete);
 
   // Actions
   const updateCardholderName = useCallback(
@@ -80,6 +101,27 @@ export const usePaymentForm = () => {
   const updateExpirationYear = useCallback(
     (year) => {
       dispatch(setExpirationYear(year));
+    },
+    [dispatch]
+  );
+
+  const updateAmount = useCallback(
+    (amount) => {
+      dispatch(setAmount(amount));
+    },
+    [dispatch]
+  );
+
+  const updateCurrency = useCallback(
+    (currency) => {
+      dispatch(setCurrency(currency));
+    },
+    [dispatch]
+  );
+
+  const updateBillingInfo = useCallback(
+    (info) => {
+      dispatch(setBillingInfo(info));
     },
     [dispatch]
   );
@@ -117,6 +159,27 @@ export const usePaymentForm = () => {
   const updateAuthenticationSetupResponse = useCallback(
     (response) => {
       dispatch(setAuthenticationSetupResponse(response));
+    },
+    [dispatch]
+  );
+
+  const updateDeviceCollectionComplete = useCallback(
+    (complete) => {
+      dispatch(setDeviceCollectionComplete(complete));
+    },
+    [dispatch]
+  );
+
+  const updateEnrollmentCheckResponse = useCallback(
+    (response) => {
+      dispatch(setEnrollmentCheckResponse(response));
+    },
+    [dispatch]
+  );
+
+  const updateThreeDSCompletionData = useCallback(
+    (data) => {
+      dispatch(setThreeDSCompletionData(data));
     },
     [dispatch]
   );
@@ -249,12 +312,17 @@ export const usePaymentForm = () => {
     cardholderName,
     expirationMonth,
     expirationYear,
+    amount,
+    currency,
+    billingInfo,
     flexConfig,
     microformInstance,
     microformReady,
     transientToken,
     tokenValidationResponse,
     authenticationSetupResponse,
+    enrollmentCheckResponse,
+    threeDSCompletionData,
     loading,
     error,
     copiedField,
@@ -265,16 +333,24 @@ export const usePaymentForm = () => {
     transientTokenCreated,
     tokenValidated,
     authenticationSetupComplete,
+    deviceCollectionComplete,
+    enrollmentCheckComplete,
 
     // Actions
     updateCardholderName,
     updateExpirationMonth,
     updateExpirationYear,
+    updateAmount,
+    updateCurrency,
+    updateBillingInfo,
     updateFlexConfig,
     updateMicroformInstance,
     updateTransientToken,
     updateTokenValidationResponse,
     updateAuthenticationSetupResponse,
+    updateDeviceCollectionComplete,
+    updateEnrollmentCheckResponse,
+    updateThreeDSCompletionData,
     clearAllTokenData,
     setFormLoading,
     setFormError,

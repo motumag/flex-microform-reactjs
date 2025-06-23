@@ -6,6 +6,26 @@ const initialState = {
   expirationMonth: "01",
   expirationYear: "25",
 
+  // Payment amount information
+  amount: "30.00",
+  currency: "USD",
+
+  // Billing information
+  billingInfo: {
+    firstName: "",
+    lastName: "",
+    address1: "",
+    address2: "",
+    locality: "",
+    administrativeArea: "",
+    postalCode: "",
+    country: "",
+    district: "",
+    buildingNumber: "",
+    email: "",
+    phoneNumber: "",
+  },
+
   // Flex configuration
   flexConfig: {
     captureContext: null,
@@ -21,12 +41,16 @@ const initialState = {
   transientToken: null,
   tokenValidationResponse: null,
   authenticationSetupResponse: null,
+  enrollmentCheckResponse: null,
+  threeDSCompletionData: null,
 
   // Processing flow states
   captureContextLoaded: false,
   transientTokenCreated: false,
   tokenValidated: false,
   authenticationSetupComplete: false,
+  deviceCollectionComplete: false,
+  enrollmentCheckComplete: false,
 
   // UI state
   loading: false,
@@ -36,7 +60,7 @@ const initialState = {
   // Payment processing state
   processingPayment: false,
   paymentSuccess: false,
-  currentStep: "idle", // 'idle', 'capture-context', 'token-creation', 'token-created', 'token-validation', 'token-verified', 'auth-setup', 'complete'
+  currentStep: "idle", // 'idle', 'capture-context', 'token-creation', 'token-created', 'token-validation', 'token-verified', 'auth-setup', 'device-collection', 'enrollment-check', 'complete'
 };
 
 const paymentFormSlice = createSlice({
@@ -52,6 +76,23 @@ const paymentFormSlice = createSlice({
     },
     setExpirationYear: (state, action) => {
       state.expirationYear = action.payload;
+    },
+
+    // Payment amount
+    setAmount: (state, action) => {
+      state.amount = action.payload;
+    },
+    setCurrency: (state, action) => {
+      state.currency = action.payload;
+    },
+
+    // Billing information
+    setBillingInfo: (state, action) => {
+      state.billingInfo = { ...state.billingInfo, ...action.payload };
+    },
+    updateBillingField: (state, action) => {
+      const { field, value } = action.payload;
+      state.billingInfo[field] = value;
     },
 
     // Flex configuration
@@ -89,8 +130,22 @@ const paymentFormSlice = createSlice({
     setAuthenticationSetupResponse: (state, action) => {
       state.authenticationSetupResponse = action.payload;
       state.authenticationSetupComplete = true;
+      state.currentStep = "device-collection";
+    },
+    setDeviceCollectionComplete: (state, action) => {
+      state.deviceCollectionComplete = true;
+      // Update step to show device collection is complete
+      state.currentStep = "device-complete";
+    },
+    setEnrollmentCheckResponse: (state, action) => {
+      state.enrollmentCheckResponse = action.payload;
+      state.enrollmentCheckComplete = true;
       state.paymentSuccess = true;
       state.currentStep = "complete";
+    },
+    setThreeDSCompletionData: (state, action) => {
+      state.threeDSCompletionData = action.payload;
+      state.currentStep = "3ds-complete";
     },
 
     // Clear token data
@@ -98,9 +153,12 @@ const paymentFormSlice = createSlice({
       state.transientToken = null;
       state.tokenValidationResponse = null;
       state.authenticationSetupResponse = null;
+      state.enrollmentCheckResponse = null;
       state.transientTokenCreated = false;
       state.tokenValidated = false;
       state.authenticationSetupComplete = false;
+      state.deviceCollectionComplete = false;
+      state.enrollmentCheckComplete = false;
       state.paymentSuccess = false;
     },
 
@@ -129,15 +187,34 @@ const paymentFormSlice = createSlice({
     // Reset form
     resetForm: (state) => {
       state.cardholderName = "";
+      state.amount = "30.00";
+      state.currency = "USD";
+      state.billingInfo = {
+        firstName: "",
+        lastName: "",
+        address1: "",
+        address2: "",
+        locality: "",
+        administrativeArea: "",
+        postalCode: "",
+        country: "",
+        district: "",
+        buildingNumber: "",
+        email: "",
+        phoneNumber: "",
+      };
       state.transientToken = null;
       state.tokenValidationResponse = null;
       state.authenticationSetupResponse = null;
+      state.enrollmentCheckResponse = null;
       state.error = null;
       state.paymentSuccess = false;
       state.processingPayment = false;
       state.transientTokenCreated = false;
       state.tokenValidated = false;
       state.authenticationSetupComplete = false;
+      state.deviceCollectionComplete = false;
+      state.enrollmentCheckComplete = false;
       state.currentStep = "idle";
     },
 
@@ -150,6 +227,10 @@ export const {
   setCardholderName,
   setExpirationMonth,
   setExpirationYear,
+  setAmount,
+  setCurrency,
+  setBillingInfo,
+  updateBillingField,
   setFlexConfig,
   updateFlexConfig,
   setMicroformInstance,
@@ -157,6 +238,9 @@ export const {
   setTransientToken,
   setTokenValidationResponse,
   setAuthenticationSetupResponse,
+  setDeviceCollectionComplete,
+  setEnrollmentCheckResponse,
+  setThreeDSCompletionData,
   clearTokenData,
   setLoading,
   setError,
@@ -174,12 +258,16 @@ export default paymentFormSlice.reducer;
 export const selectCardholderName = (state) => state.paymentForm.cardholderName;
 export const selectExpirationMonth = (state) => state.paymentForm.expirationMonth;
 export const selectExpirationYear = (state) => state.paymentForm.expirationYear;
+export const selectAmount = (state) => state.paymentForm.amount;
+export const selectCurrency = (state) => state.paymentForm.currency;
+export const selectBillingInfo = (state) => state.paymentForm.billingInfo;
 export const selectFlexConfig = (state) => state.paymentForm.flexConfig;
 export const selectMicroformInstance = (state) => state.paymentForm.microformInstance;
 export const selectMicroformReady = (state) => state.paymentForm.microformReady;
 export const selectTransientToken = (state) => state.paymentForm.transientToken;
 export const selectTokenValidationResponse = (state) => state.paymentForm.tokenValidationResponse;
 export const selectAuthenticationSetupResponse = (state) => state.paymentForm.authenticationSetupResponse;
+export const selectEnrollmentCheckResponse = (state) => state.paymentForm.enrollmentCheckResponse;
 export const selectLoading = (state) => state.paymentForm.loading;
 export const selectError = (state) => state.paymentForm.error;
 export const selectCopiedField = (state) => state.paymentForm.copiedField;
@@ -190,3 +278,6 @@ export const selectCaptureContextLoaded = (state) => state.paymentForm.captureCo
 export const selectTransientTokenCreated = (state) => state.paymentForm.transientTokenCreated;
 export const selectTokenValidated = (state) => state.paymentForm.tokenValidated;
 export const selectAuthenticationSetupComplete = (state) => state.paymentForm.authenticationSetupComplete;
+export const selectDeviceCollectionComplete = (state) => state.paymentForm.deviceCollectionComplete;
+export const selectEnrollmentCheckComplete = (state) => state.paymentForm.enrollmentCheckComplete;
+export const selectThreeDSCompletionData = (state) => state.paymentForm.threeDSCompletionData;

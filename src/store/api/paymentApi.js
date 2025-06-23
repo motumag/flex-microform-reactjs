@@ -6,6 +6,7 @@ export const paymentApi = createApi({
   reducerPath: "paymentApi",
   baseQuery: fetchBaseQuery({
     baseUrl: BASE_URL,
+    timeout: 30000, // 30 second timeout
     prepareHeaders: (headers) => {
       headers.set("Content-Type", "application/json");
       return headers;
@@ -62,6 +63,37 @@ export const paymentApi = createApi({
       invalidatesTags: ["Authentication"],
     }),
 
+    // Payer Authentication Enrollment Check
+    checkEnrollment: builder.mutation({
+      query: (enrollmentData) => {
+        console.log("🔍 Enrollment Check API Call Starting...");
+        console.log("🔍 URL:", `${BASE_URL}/api/v1/payer-plus-enrollment`);
+        console.log("🔍 Method:", "POST");
+        console.log("🔍 Request Body:", JSON.stringify(enrollmentData, null, 2));
+        console.log("🔍 Request Body Size:", JSON.stringify(enrollmentData).length, "bytes");
+
+        return {
+          url: "/api/v1/payer-plus-enrollment",
+          method: "POST",
+          body: enrollmentData,
+        };
+      },
+      transformResponse: (response, meta, arg) => {
+        console.log("✅ Enrollment Check Response Received:");
+        console.log("- Status:", meta?.response?.status);
+        console.log("- Response:", response);
+        return response;
+      },
+      transformErrorResponse: (response, meta, arg) => {
+        console.error("❌ Enrollment Check Error Response:");
+        console.error("- Status:", meta?.response?.status);
+        console.error("- Error:", response);
+        console.error("- Full meta:", meta);
+        return response;
+      },
+      invalidatesTags: ["Authentication"],
+    }),
+
     // Process payment (if you have additional payment processing endpoints)
     processPayment: builder.mutation({
       query: (paymentData) => ({
@@ -74,4 +106,4 @@ export const paymentApi = createApi({
   }),
 });
 
-export const { useGetCaptureContextMutation, useValidateTokenMutation, useSetupAuthenticationMutation, useProcessPaymentMutation } = paymentApi;
+export const { useGetCaptureContextMutation, useValidateTokenMutation, useSetupAuthenticationMutation, useCheckEnrollmentMutation, useProcessPaymentMutation } = paymentApi;

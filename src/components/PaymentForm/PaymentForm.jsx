@@ -3,8 +3,12 @@ import { usePaymentForm } from '../../hooks/usePaymentForm';
 import { useMicroform } from '../../hooks/useMicroform';
 import CardPreview from './CardPreview';
 import PaymentFormFields from './PaymentFormFields';
+import PaymentDetailsForm from './PaymentDetailsForm';
 import PaymentButton from './PaymentButton';
 import StatusMessages from './StatusMessages';
+import EnrollmentResponseDisplay from './EnrollmentResponseDisplay';
+import ThreeDSChallenge from './ThreeDSChallenge';
+import ThreeDSCompletionData from './ThreeDSCompletionData';
 
 const PaymentForm = () => {
   const {
@@ -113,7 +117,15 @@ const PaymentForm = () => {
           </div>
         )}
 
+        <PaymentDetailsForm />
+
         <PaymentButton />
+
+        <EnrollmentResponseDisplay />
+
+        <ThreeDSChallenge />
+
+        <ThreeDSCompletionData />
 
         <input type="hidden" id="flexresponse" name="flexresponse" />
       </form>

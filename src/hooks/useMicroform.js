@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useGetCaptureContextMutation, useValidateTokenMutation, useSetupAuthenticationMutation } from "../store/api/paymentApi";
+import { useGetCaptureContextMutation, useValidateTokenMutation, useSetupAuthenticationMutation, useCheckEnrollmentMutation } from "../store/api/paymentApi";
 import { usePaymentForm } from "./usePaymentForm";
 import { useDebug } from "./useDebug";
 import { setScriptLoaded, setMicroformInitialized, setFieldsLoaded, setApiConnected, setLastApiCall, addError, addLog } from "../store/slices/debugSlice";
@@ -18,12 +18,21 @@ export const useMicroform = () => {
     updateTransientToken,
     updateTokenValidationResponse,
     updateAuthenticationSetupResponse,
+    updateDeviceCollectionComplete,
+    updateEnrollmentCheckResponse,
     setPaymentProcessing,
     cardholderName,
+    amount,
+    currency,
+    billingInfo,
     microformInstance,
     transientToken,
     tokenValidationResponse,
+    authenticationSetupResponse,
     updateCurrentStep,
+    deviceCollectionComplete,
+    enrollmentCheckComplete,
+    currentStep,
   } = usePaymentForm();
 
   const { debugStatus } = useDebug();
@@ -34,6 +43,7 @@ export const useMicroform = () => {
   const [getCaptureContext, { isLoading: isGettingContext }] = useGetCaptureContextMutation();
   const [validateToken, { isLoading: isValidatingToken }] = useValidateTokenMutation();
   const [setupAuthentication, { isLoading: isSettingUpAuth }] = useSetupAuthenticationMutation();
+  const [checkEnrollment, { isLoading: isCheckingEnrollment }] = useCheckEnrollmentMutation();
 
   // Fetch capture context
   const fetchCaptureContext = useCallback(async () => {
@@ -664,49 +674,251 @@ export const useMicroform = () => {
         }
       }
 
-      // Listen for Cardinal Commerce response
-      const messageHandler = (event) => {
-        if (event.origin === "https://centinelapistag.cardinalcommerce.com") {
-          console.log("✅ Device Data Collection Result:", event.data);
-
-          dispatch(
-            addLog({
-              level: "success",
-              message: "Device data collection completed",
-              data: { result: event.data },
-            })
-          );
-
-          updateCurrentStep("complete");
-
-          // Clean up
-          window.removeEventListener("message", messageHandler);
-
-          // Remove the form and iframe
-          if (form) form.remove();
-          if (iframe) iframe.remove();
-        }
-      };
-
-      window.addEventListener("message", messageHandler, false);
-
       // Submit the form
       console.log("🚀 Submitting Cardinal Commerce form...");
       form.submit();
 
       dispatch(
         addLog({
-          level: "info",
-          message: "Device data collection form submitted to Cardinal Commerce",
+          level: "success",
+          message: "Device data collection form submitted - proceeding immediately",
           data: {
             action: "https://centinelapistag.cardinalcommerce.com/V1/Cruise/Collect",
             accessToken: accessToken.substring(0, 20) + "...",
+            note: "Not waiting for response - proceeding to enrollment",
           },
         })
       );
+
+      // Immediately mark device collection as complete (don't wait for response)
+      updateDeviceCollectionComplete(true);
+      console.log("✅ Device data collection submitted, enrollment check now available");
     },
-    [dispatch, updateCurrentStep]
+    [dispatch, updateDeviceCollectionComplete]
   );
+
+  // Manual skip device collection function
+  const skipDeviceDataCollection = useCallback(() => {
+    console.log("🔧 Manual device collection skip triggered");
+
+    // Clean up any existing Cardinal Commerce elements
+    const form = document.getElementById("cardinal_collection_form");
+    const iframe = document.getElementById("cardinal_collection_iframe");
+
+    if (form) form.remove();
+    if (iframe) iframe.remove();
+
+    // Remove any existing message listeners
+    // Note: We can't remove specific listeners, so this is best effort cleanup
+
+    dispatch(
+      addLog({
+        level: "warning",
+        message: "Device data collection manually skipped",
+        data: { reason: "User manually skipped" },
+      })
+    );
+
+    // Mark device collection as complete
+    updateDeviceCollectionComplete(true);
+
+    console.log("✅ Device data collection manually skipped, enrollment check now available");
+  }, [dispatch, updateDeviceCollectionComplete]);
+
+  // Payer Authentication Enrollment Check (Step 5)
+  const startEnrollmentCheck = useCallback(async () => {
+    console.log("🔍 Starting enrollment check - validating prerequisites...");
+
+    // Prevent duplicate calls
+    if (currentStep === "enrollment-check") {
+      console.log("⚠️ Enrollment check already in progress, skipping duplicate call");
+      return;
+    }
+
+    // Don't call if already completed
+    if (enrollmentCheckComplete) {
+      console.log("⚠️ Enrollment check already completed, skipping duplicate call");
+      return;
+    }
+
+    console.log("🔍 Prerequisites check:", {
+      hasTransientToken: !!transientToken,
+      transientTokenLength: transientToken?.length,
+      hasTokenValidationResponse: !!tokenValidationResponse?.data,
+      hasAuthSetupResponse: !!authenticationSetupResponse,
+      hasReferenceId: !!authenticationSetupResponse?.consumerAuthenticationInformation?.referenceId,
+      referenceId: authenticationSetupResponse?.consumerAuthenticationInformation?.referenceId,
+      clientReferenceCode: authenticationSetupResponse?.clientReferenceInformation?.code,
+    });
+
+    if (!transientToken || !tokenValidationResponse?.data || !authenticationSetupResponse?.consumerAuthenticationInformation?.referenceId) {
+      const errorMessage = "Missing required data for enrollment check";
+      console.error("❌ Prerequisites failed:", {
+        transientToken: !!transientToken,
+        tokenValidationResponse: !!tokenValidationResponse?.data,
+        authenticationSetupResponse: !!authenticationSetupResponse,
+        referenceId: !!authenticationSetupResponse?.consumerAuthenticationInformation?.referenceId,
+      });
+      setFormError(errorMessage);
+      dispatch(addError(errorMessage));
+      return;
+    }
+
+    try {
+      console.log("✅ Prerequisites passed, starting enrollment check...");
+      updateCurrentStep("enrollment-check");
+
+      dispatch(
+        addLog({
+          level: "info",
+          message: "Starting payer authentication enrollment check",
+          data: {
+            referenceId: authenticationSetupResponse.consumerAuthenticationInformation.referenceId,
+            clientCode: authenticationSetupResponse.clientReferenceInformation?.code,
+          },
+        })
+      );
+
+      // Get browser information
+      const browserInfo = {
+        ipAddress: "127.0.0.1", // You might want to get this dynamically
+        fingerprintSessionId: "hlh135dddd235", // This should come from device collection
+        httpAcceptBrowserValue: navigator.userAgent || "application/json",
+        httpAcceptContent: "application/json",
+        httpBrowserLanguage: navigator.language || "en-US",
+        httpBrowserJavaEnabled: false,
+        httpBrowserJavaScriptEnabled: true,
+        httpBrowserColorDepth: window.screen?.colorDepth?.toString() || "24",
+        httpBrowserScreenHeight: window.screen?.height?.toString() || "1280",
+        httpBrowserScreenWidth: window.screen?.width?.toString() || "1280",
+        httpBrowserTimeDifference: "330", // You might want to calculate this
+        userAgentBrowserValue: navigator.userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      };
+
+      console.log("🔍 Browser info collected:", browserInfo);
+      console.log("🔍 Form data:", { amount, currency, billingInfo, cardholderName });
+
+      // Build enrollment request
+      const enrollmentRequest = {
+        clientReferenceInformation: {
+          code: authenticationSetupResponse.clientReferenceInformation?.code || "default_reference_code",
+        },
+        processingInformation: {
+          actionList: ["CONSUMER_AUTHENTICATION"],
+          capture: true,
+          commerceIndicator: "internet",
+          authorizationOptions: {
+            initiator: {
+              type: "customer",
+              storedCredentialUsed: false,
+            },
+            aftIndicator: true,
+          },
+        },
+        orderInformation: {
+          amountDetails: {
+            totalAmount: amount,
+            currency: currency,
+          },
+          billTo: {
+            firstName: billingInfo.firstName || cardholderName?.split(" ")[0] || "John",
+            lastName: billingInfo.lastName || cardholderName?.split(" ").slice(1).join(" ") || "Doe",
+            address1: billingInfo.address1 || "123 Main Street",
+            address2: billingInfo.address2 || "",
+            locality: billingInfo.locality || "City",
+            administrativeArea: billingInfo.administrativeArea || "",
+            postalCode: billingInfo.postalCode || "12345",
+            country: billingInfo.country || "US",
+            district: billingInfo.district || "",
+            buildingNumber: billingInfo.buildingNumber || "",
+            email: billingInfo.email || "customer@example.com",
+            phoneNumber: billingInfo.phoneNumber || "1234567890",
+          },
+        },
+        deviceInformation: browserInfo,
+        consumerAuthenticationInformation: {
+          challengeCode: "04",
+          deviceChannel: "Browser",
+          returnUrl: "http://localhost:8081/api/v1/payer-plus-validation/capture",
+          referenceId: authenticationSetupResponse.consumerAuthenticationInformation.referenceId,
+        },
+        tokenInformation: {
+          transientTokenJwt: transientToken,
+        },
+      };
+
+      console.log("🔍 Enrollment request prepared:", JSON.stringify(enrollmentRequest, null, 2));
+      console.log("🔍 Token info for enrollment:");
+      console.log("- Using transientToken (JWT from microform):", transientToken?.substring(0, 50) + "...");
+      console.log("- Token length:", transientToken?.length);
+      console.log("- Token type:", typeof transientToken);
+      console.log("🚀 Calling checkEnrollment API...");
+
+      const enrollmentResponse = await checkEnrollment(enrollmentRequest).unwrap();
+
+      console.log("✅ Enrollment check successful:", enrollmentResponse);
+
+      // Store the enrollment response
+      updateEnrollmentCheckResponse(enrollmentResponse);
+
+      dispatch(
+        addLog({
+          level: "success",
+          message: "Payer authentication enrollment check completed successfully",
+          data: {
+            status: enrollmentResponse.status,
+            id: enrollmentResponse.id,
+            veresEnrolled: enrollmentResponse.consumerAuthenticationInformation?.veresEnrolled,
+            ecommerceIndicator: enrollmentResponse.consumerAuthenticationInformation?.ecommerceIndicator,
+          },
+        })
+      );
+
+      // The step will be updated to 'complete' by the Redux action
+    } catch (err) {
+      console.error("❌ Error in enrollment check:", err);
+      console.error("❌ Error details:", {
+        message: err.message,
+        status: err.status,
+        data: err.data,
+        stack: err.stack,
+      });
+
+      const errorMessage = err.data?.message || err.message || "Enrollment check failed";
+      setFormError(errorMessage);
+      dispatch(addError(errorMessage));
+
+      dispatch(
+        addLog({
+          level: "error",
+          message: "Payer authentication enrollment check failed",
+          data: {
+            error: errorMessage,
+            status: err.status,
+            fullError: err,
+          },
+        })
+      );
+
+      updateCurrentStep("device-collection"); // Go back to previous step
+    }
+  }, [
+    transientToken,
+    tokenValidationResponse,
+    authenticationSetupResponse,
+    cardholderName,
+    amount,
+    currency,
+    billingInfo,
+    checkEnrollment,
+    setFormError,
+    clearFormError,
+    updateCurrentStep,
+    updateEnrollmentCheckResponse,
+    dispatch,
+    currentStep,
+    enrollmentCheckComplete,
+  ]);
 
   // Complete payment processing flow (Legacy - keeping for backward compatibility)
   const processPayment = useCallback(async () => {
@@ -725,6 +937,21 @@ export const useMicroform = () => {
     return cleanup;
   }, [initializeMicroform]);
 
+  // Auto-trigger enrollment check when device collection completes - DISABLED
+  // User wants manual control over enrollment step
+  // useEffect(() => {
+  //   if (deviceCollectionComplete && currentStep === "enrollment-check" && !enrollmentCheckComplete) {
+  //     console.log("🚀 Auto-triggering enrollment check after device collection...");
+
+  //     // Small delay to ensure all state updates are complete
+  //     const timer = setTimeout(() => {
+  //       startEnrollmentCheck();
+  //     }, 100);
+
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [startEnrollmentCheck, deviceCollectionComplete, currentStep, enrollmentCheckComplete]);
+
   return {
     fetchCaptureContext,
     initializeMicroform,
@@ -732,11 +959,15 @@ export const useMicroform = () => {
     createTransientToken,
     verifyTransientTokenManually,
     setupAuthenticationManually,
+    startEnrollmentCheck,
     validateTransientToken,
     setupAuthenticationWithJti,
+    updateDeviceCollectionComplete,
+    skipDeviceDataCollection,
     isGettingContext,
     isValidatingToken,
     isSettingUpAuth,
+    isCheckingEnrollment,
     debugStatus,
   };
 };
